@@ -5,7 +5,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-class KArmedBandit():
+class Bandit(abc.ABC):
+    @abc.abstractmethod
+    def __call__(self, action: int) -> int:
+        pass
+
+    @abc.abstractproperty
+    def k(self) -> int:
+        pass
+
+
+
+class KArmedBandit(Bandit):
     def __init__(self, k: int, seed: int = 123):
         self._k = k
         self._random_state = np.random.RandomState(seed=seed)
@@ -19,6 +30,24 @@ class KArmedBandit():
     @property
     def k(self):
         return self._k 
+
+
+class NonStationaryKArmedBandit(Bandit):
+    def __init__(self, k: int, seed: int = 123):
+        self._k = k
+        self._random_state = np.random.RandomState(seed=seed)
+        self._means = np.zeros(shape=k, dtype=np.float32)
+
+    def __call__(self, action: int):
+        if not 0 <= action < self._k:
+            raise ValueError(f"action is {action}, should be between 0 and {self._k - 1} (inclusive)")
+        self._means += self._random_state.normal(size=self._means.shape)
+        return self._random_state.normal(self._means[action], 1)
+
+    @property
+    def k(self):
+        return self._k 
+
 
 
 class Policy(abc.ABC):
@@ -80,6 +109,22 @@ class EpsilonGreedyMethod(Policy, SampleAverageValuePolicyMixin):
     
     def update_state(self, t, action, reward):
         self._update_state(t, action, reward)
+
+
+class NonstationaryEpsilonGreedyMethod(Policy):
+    def __init__(self, space_size: int, epsilon: float, step_size: float, seed: int = 123):
+        self._space_size = space_size
+        self._step_size = step_size
+        self._epsilon = epsilon
+        self._random_state = np.random.RandomState(seed)
+        self._q = np.zeros(space_size, dtype=np.float)
+    
+    def choose_action(self, t):
+        u = self._random_state.uniform()
+        return np.argmax(self._q) if u > self._epsilon else self._random_state.randint(self._space_size)
+    
+    def update_state(self, t, action, reward):
+        self._q[action] += self._step_size * (reward - self._q[action])
 
 
 class EpsilonGreedyMethodWithDecay(Policy, SampleAverageValuePolicyMixin):
@@ -156,12 +201,12 @@ def plot_results(rewards, policies: List[Callable[[int], Policy]]):
     plt.show()
 
 
-def run_simulations(space_size, policies, n_seeds, n_iterations):
+def run_simulations(space_size, policies, bandit_func, n_seeds, n_iterations):
     rewards = []
     for seed in range(n_seeds): 
         rewards.append([])
         for policy_func in policies:
-            bandit = KArmedBandit(space_size, seed=seed)
+            bandit = bandit_func(space_size, seed)
             res = policy_func(seed).run(bandit, n_iterations)
             rewards[-1].append(res)
     return rewards
@@ -175,11 +220,25 @@ def main():
         lambda seed: UpperConfidenceBoundPolicy(space_size, 1.0, seed=seed),
         lambda seed: GradientPolicy(space_size, 0.1, seed=seed),
     ]
-    rewards = run_simulations(space_size, policies, 100, 1000)
+    bandit = lambda space_size, seed: KArmedBandit(space_size, seed=seed)
+    rewards = run_simulations(space_size, policies, bandit, 100, 1000)
     plot_results(rewards, policies)
+
+
+def main2():
+    space_size = 10
+    policies: List[Callable[[int], Policy]] = [
+        lambda seed: EpsilonGreedyMethod(space_size, 0.1, seed=seed),
+        lambda seed: NonstationaryEpsilonGreedyMethod(space_size, 0.1, 0.1, seed=seed)
+    ]
+    bandit = lambda space_size, seed: NonStationaryKArmedBandit(space_size, seed)
+    rewards = run_simulations(space_size, policies, bandit, 100, 10000)
+    plot_results(rewards, policies)
+
 
 if __name__ == "__main__":
     main()
+    main2()
 
 
 
