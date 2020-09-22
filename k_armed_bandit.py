@@ -38,6 +38,10 @@ class Policy(abc.ABC):
             rewards.append(reward)
             self.update_state(t, action, reward)
         return rewards
+    
+    @property
+    def name(self):
+        return self.__class__.__name__
 
 
 class SampleAverageValuePolicyMixin:
@@ -145,7 +149,7 @@ def plot_results(rewards, policies: List[Callable[[int], Policy]]):
 
     plt.figure(figsize=(14, 8))
     for rewards, policy in zip(mean_rewards, policies): 
-        plt.plot(rewards, alpha=0.4, label=policy(1).__name__)
+        plt.plot(rewards, alpha=0.4, label=policy(1).name)
     plt.xlabel("Iteration")
     plt.ylabel("Average reward")
     plt.legend()
