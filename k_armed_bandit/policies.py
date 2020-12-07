@@ -1,53 +1,8 @@
 import abc
-from typing import Callable, List
 
-import matplotlib.pyplot as plt
 import numpy as np
 
-
-class Bandit(abc.ABC):
-    @abc.abstractmethod
-    def __call__(self, action: int) -> int:
-        pass
-
-    @abc.abstractproperty
-    def k(self) -> int:
-        pass
-
-
-
-class KArmedBandit(Bandit):
-    def __init__(self, k: int, seed: int = 123):
-        self._k = k
-        self._random_state = np.random.RandomState(seed=seed)
-        self._means = self._random_state.normal(0, 1, size=k)
-
-    def __call__(self, action: int):
-        if not 0 <= action < self._k:
-            raise ValueError(f"action is {action}, should be between 0 and {self._k - 1} (inclusive)")
-        return self._random_state.normal(self._means[action], 1)
-
-    @property
-    def k(self):
-        return self._k 
-
-
-class NonStationaryKArmedBandit(Bandit):
-    def __init__(self, k: int, seed: int = 123):
-        self._k = k
-        self._random_state = np.random.RandomState(seed=seed)
-        self._means = np.zeros(shape=k, dtype=np.float32)
-
-    def __call__(self, action: int):
-        if not 0 <= action < self._k:
-            raise ValueError(f"action is {action}, should be between 0 and {self._k - 1} (inclusive)")
-        self._means += self._random_state.normal(size=self._means.shape)
-        return self._random_state.normal(self._means[action], 1)
-
-    @property
-    def k(self):
-        return self._k 
-
+from bandits import KArmedBandit
 
 
 class Policy(abc.ABC):
@@ -187,58 +142,3 @@ class GradientPolicy(Policy):
         
         self._h = self._h + signs * self._step_size * (reward - self._baseline) * probs
         self._baseline = self._baseline + (1 / t) * (reward - self._baseline)
-
-
-def plot_results(rewards, policies: List[Callable[[int], Policy]]):
-    mean_rewards = np.array(rewards).mean(axis=0)
-
-    plt.figure(figsize=(14, 8))
-    for rewards, policy in zip(mean_rewards, policies): 
-        plt.plot(rewards, alpha=0.4, label=policy(1).name)
-    plt.xlabel("Iteration")
-    plt.ylabel("Average reward")
-    plt.legend()
-    plt.show()
-
-
-def run_simulations(space_size, policies, bandit_func, n_seeds, n_iterations):
-    rewards = []
-    for seed in range(n_seeds): 
-        rewards.append([])
-        for policy_func in policies:
-            bandit = bandit_func(space_size, seed)
-            res = policy_func(seed).run(bandit, n_iterations)
-            rewards[-1].append(res)
-    return rewards
-
-def main():
-    space_size = 10
-    policies: List[Callable[[int], Policy]] = [
-        lambda seed: GreedyMethod(space_size),
-        lambda seed: EpsilonGreedyMethod(space_size, 0.05, seed=seed),
-        lambda seed: EpsilonGreedyMethodWithDecay(space_size, 0.1, 0.998, seed=seed),
-        lambda seed: UpperConfidenceBoundPolicy(space_size, 1.0, seed=seed),
-        lambda seed: GradientPolicy(space_size, 0.1, seed=seed),
-    ]
-    bandit = lambda space_size, seed: KArmedBandit(space_size, seed=seed)
-    rewards = run_simulations(space_size, policies, bandit, 100, 1000)
-    plot_results(rewards, policies)
-
-
-def main2():
-    space_size = 10
-    policies: List[Callable[[int], Policy]] = [
-        lambda seed: EpsilonGreedyMethod(space_size, 0.1, seed=seed),
-        lambda seed: NonstationaryEpsilonGreedyMethod(space_size, 0.1, 0.1, seed=seed)
-    ]
-    bandit = lambda space_size, seed: NonStationaryKArmedBandit(space_size, seed)
-    rewards = run_simulations(space_size, policies, bandit, 100, 10000)
-    plot_results(rewards, policies)
-
-
-if __name__ == "__main__":
-    main()
-    main2()
-
-
-
