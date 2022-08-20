@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Optional
 
 import click
@@ -7,7 +8,7 @@ from tqdm import tqdm
 import yaml
 
 from agents import Agent
-from vizualizer import RewardVizualizer
+from vizualizer import EpisodeVizualizer, RewardVizualizer
 
 _CURRENT_DIR = os.path.dirname(__file__)
 print(_CURRENT_DIR)
@@ -17,6 +18,7 @@ def run_agent(
     env: gym.Env,
     agent: Agent, 
     vizualizer: RewardVizualizer,
+    episode_vizualizer: EpisodeVizualizer,
     vizualization_freq: Optional[int] = 10,
 ):
     obs = env.reset()
@@ -29,7 +31,6 @@ def run_agent(
 
     for _ in tqdm(range(episodes)):
         if vizualization_freq and (episode_number % vizualization_freq == 0):
-            env.render()
             vizualizer.show(episode_number, episode_steps)
         obs, reward, done, _ = env.step(action)
         total_reward += reward
@@ -42,9 +43,11 @@ def run_agent(
             episode_number += 1
             rewards.append(total_reward)
             vizualizer.update(total_reward)
+            episode_vizualizer.vizualize_if_idle()
             total_reward, episode_steps = 0, 0
             agent.agent_start(obs)
     env.close()
+    return agent
 
 
 @click.command()
@@ -59,15 +62,25 @@ def run(config, experiment: str):
         config = yaml.safe_load(config_file)
     config = config["experiments"][experiment]
     env = gym.make(config["env"])
+
     agent = Agent.from_config(
         config["agent"],
         env.action_space,
         env.observation_space,
     )
     vizualizer = RewardVizualizer()
+    episode_vizualizer = EpisodeVizualizer(gym.make(config["env"]), agent)
     vizualiztion_freq = config["vizualization_freq"]
     n_episodes = config["n_episodes"]
-    run_agent(n_episodes, env, agent, vizualizer, vizualization_freq=vizualiztion_freq)
+    run_agent(
+        n_episodes, 
+        env, 
+        agent, 
+        vizualizer,
+        vizualization_freq=vizualiztion_freq, 
+        episode_vizualizer=episode_vizualizer
+    )
+
 
 
 if __name__ == "__main__":

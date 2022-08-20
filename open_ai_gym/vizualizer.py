@@ -1,5 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from multiprocessing import Process
+from concurrent.futures import ProcessPoolExecutor, Future
+
+import gym
+from agents import Agent
 
 class RewardVizualizer():
     def __init__(self, active=True, window=40) -> None:
@@ -54,4 +59,33 @@ class RewardVizualizer():
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()
             plt.draw()
+
+
+class EpisodeVizualizer:
+    def __init__(self, env: gym.Env, agent: Agent) -> None:
+        self._env = env
+        self._agent = agent
+        self._pool = ProcessPoolExecutor(max_workers=1)
+        self._future: Future | None = None
+    
+    def update_agent(self, agent: Agent):
+        self._agent = agent
+
+    def vizualize_if_idle(self):
+        if self._future is not None and not self._future.done():
+            return
+
+        self._future = self._pool.submit(self._vizualize, self._env, self._agent)
+
+    @staticmethod
+    def _vizualize(env: gym.Env, agent: Agent):
+        obs = env.reset()
+        action = agent.agent_start(obs)
+        done = False
+
+        while not done:
+            env.render()
+            obs, reward, done, _ = env.step(action)
+            if not done:
+                action = agent.agent_step(reward, obs)
 
