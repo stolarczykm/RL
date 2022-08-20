@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import click
@@ -7,6 +8,9 @@ import yaml
 
 from agents import Agent
 from vizualizer import RewardVizualizer
+
+_CURRENT_DIR = os.path.dirname(__file__)
+print(_CURRENT_DIR)
 
 def run_agent(
     episodes: int, 
@@ -44,10 +48,16 @@ def run_agent(
 
 
 @click.command()
-@click.argument("config_path", type=click.Path(exists=True, dir_okay=False))
-def run(config_path):
-    with open(config_path, "r") as config_file:
+@click.option(
+    "--config", "-c", 
+    type=click.Path(exists=True, dir_okay=False),
+    default=f"{_CURRENT_DIR}/config.yml",
+)
+@click.argument("experiment", default="pendulum")
+def run(config, experiment: str):
+    with open(config, "r") as config_file:
         config = yaml.safe_load(config_file)
+    config = config["experiments"][experiment]
     env = gym.make(config["env"])
     agent = Agent.from_config(
         config["agent"],

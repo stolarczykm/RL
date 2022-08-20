@@ -1,20 +1,37 @@
-# env: MountainCar-v0
-# n_episodes: 2000000
-# agent:
-#   __type__: SarsaAgent
-#   epsilon: 0.0
-#   gamma: 1.0
-#   alpha: 0.5
-#   n_bins: 10
+experiments:
+  mountain_car:
+    env: MountainCar-v0
+    n_episodes: 2000000
+    vizualization_freq: 1000
+    agent:
+      __type__: SarsaAgent
+      epsilon: 0.0
+      gamma: 1.0
+      alpha: 0.5
+      n_bins: 10
 
+  mountain_car_continous:
+    env: MountainCarContinuous-v0
+    n_episodes: 20000000
+    vizualization_freq: 500
+    agent:
+      __type__: SarsaAgent
+      epsilon: 0.1
+      epsilon_decay: 0.99
+      gamma: 0.99
+      alpha: 0.5
+      n_bins: 10
+      action_bins: 5 
+      weights_initialization: 100.0
 
-env: Pendulum-v1
-n_episodes: 2000000
-vizualization_freq: 1000
-agent:
-  __type__: SarsaAgent
-  epsilon: 0.01
-  gamma: 0.95 
-  alpha: 0.8
-  n_bins: 32
-  action_bins: 5
+  pendulum:
+    env: Pendulum-v1
+    n_episodes: 2000000
+    vizualization_freq: 1000
+    agent:
+      __type__: SarsaAgent
+      epsilon: 0.01
+      gamma: 0.95 
+      alpha: 0.8
+      n_bins: 32
+      action_bins: 5

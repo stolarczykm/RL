@@ -50,11 +50,14 @@ class SarsaAgent(Agent):
         gamma: float = 0.9,
         alpha: float = 0.5,
         n_bins: int = 10,
+        weights_initialization: float = 0.0,
+        epsilon_decay: float = 1.0,
         action_bins: Optional[int] = None,
         seed: int = 0,
     ): 
         super().__init__(action_space, observation_space)
         self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
         self.gamma = gamma
         self.alpha = alpha
 
@@ -86,7 +89,11 @@ class SarsaAgent(Agent):
         self.n_bins = n_bins
         self.n_state_features = n_bins ** len(self.state_mins) 
 
-        self.weights = np.zeros((self.n_actions, self.n_state_features), dtype="float")
+        self.weights = np.full(
+            shape=(self.n_actions, self.n_state_features), 
+            fill_value=weights_initialization,
+            dtype="float"
+        )
         self.last_state = None
         self.last_action = None
         self.last_action_value = None
@@ -149,3 +156,4 @@ class SarsaAgent(Agent):
         self.weights[self.last_action, self.last_feature_ind] += self.alpha * (
             reward - self.last_action_value
         )
+        self.epsilon = self.epsilon_decay * self.epsilon
