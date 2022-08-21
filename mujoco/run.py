@@ -51,13 +51,14 @@ def run_agent(
 
 @click.command()
 def run():
-    env = gym.make("Hopper")
+    env_name = "Hopper"
+    env = gym.make(env_name)
 
     agent = ReinforceAgent(env.action_space, env.observation_space)
     vizualizer = RewardVizualizer()
-    episode_vizualizer = EpisodeVizualizer(gym.make("Hopper"), agent)
+    episode_vizualizer = EpisodeVizualizer(gym.make(env_name), agent)
     vizualiztion_freq = 100
-    n_steps = 1000000
+    n_steps = 10000000
     run_agent(
         n_steps, 
         env, 

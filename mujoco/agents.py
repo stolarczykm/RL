@@ -66,8 +66,8 @@ class ReinforceAgent(Agent):
         self, 
         action_space: Space, 
         observation_space: Space, 
-        hidden_sizes: list[int] = [60, 60],
-        gamma: float = 0.99,
+        hidden_sizes: list[int] = [40, 60, 40],
+        gamma: float = 0.995,
     ) -> None:
         super().__init__(action_space, observation_space)
         self._n_outputs = self.action_space.shape[0]
@@ -75,7 +75,7 @@ class ReinforceAgent(Agent):
         self._gamma = gamma
         self._policy_network = self._create_network(hidden_sizes)
         self._policy_network.eval()
-        self._optimizer = optim.SGD(self._policy_network.parameters(), lr=1e-2)
+        self._optimizer = optim.SGD(self._policy_network.parameters(), lr=2e-4)
         self._reset_trajectory()
 
     def agent_start(self, state: np.ndarray):
@@ -125,6 +125,7 @@ class ReinforceAgent(Agent):
         self._policy_network.train()
         self._optimizer.zero_grad()
 
+        returns_tensor = returns_tensor - returns_tensor.mean()
         action_means, action_precisions = self._policy_network(states_tesnor)
         action_precisions = torch.clamp(action_precisions, min=-10.0, max=10.0)
         action_distribution = MultivariateNormal(
