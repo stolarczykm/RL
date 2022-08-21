@@ -51,7 +51,7 @@ def run_agent(
 
 @click.command()
 def run():
-    env_name = "Hopper"
+    env_name = "Swimmer"
     env = gym.make(env_name)
 
     agent = ReinforceAgent(env.action_space, env.observation_space)

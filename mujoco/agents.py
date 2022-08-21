@@ -1,10 +1,11 @@
 import abc
+from email.mime import base
 from turtle import forward
 
 import numpy as np
 import torch
 from gym import Space
-from torch import nn, optim
+from torch import nn, optim, Tensor
 from torch.distributions import MultivariateNormal
 
 
@@ -67,15 +68,18 @@ class ReinforceAgent(Agent):
         action_space: Space, 
         observation_space: Space, 
         hidden_sizes: list[int] = [40, 60, 40],
-        gamma: float = 0.995,
+        gamma: float = .99,
     ) -> None:
         super().__init__(action_space, observation_space)
         self._n_outputs = self.action_space.shape[0]
         self._n_inputs = self.observation_space.shape[0]
         self._gamma = gamma
-        self._policy_network = self._create_network(hidden_sizes)
+        self._policy_network = self._create_policy_network(hidden_sizes)
+        self._baseline_network = self._create_baseline_network(hidden_sizes)
         self._policy_network.eval()
-        self._optimizer = optim.SGD(self._policy_network.parameters(), lr=2e-4)
+        self._baseline_network.eval()
+        self._policy_optimizer = optim.SGD(self._policy_network.parameters(), lr=2e-4)
+        self._baseline_optimizer = optim.SGD(self._baseline_network.parameters(), lr=2e-4)
         self._reset_trajectory()
 
     def agent_start(self, state: np.ndarray):
@@ -90,9 +94,10 @@ class ReinforceAgent(Agent):
     
     def agent_end(self, reward: np.ndarray) -> None:
         self._update_trajectory(reward=reward)
-        self._update_policy()
+        self._update_networks()
+        self._reset_trajectory()
 
-    def _create_network(self, hidden_sizes: list[int]) -> nn.Module:
+    def _create_policy_network(self, hidden_sizes: list[int]) -> nn.Module:
         sizes = (self._n_inputs, *hidden_sizes)
         layers = []
         for size_in, size_out in zip(sizes, sizes[1:]): 
@@ -106,6 +111,15 @@ class ReinforceAgent(Agent):
         )
         return nn.Sequential(*layers)
 
+    def _create_baseline_network(self, hidden_sizes: list[int]) -> nn.Module:
+        sizes = (self._n_inputs, *hidden_sizes)
+        layers = []
+        for size_in, size_out in zip(sizes, sizes[1:]): 
+            layers.append(nn.Linear(size_in, size_out))
+            layers.append(nn.Tanh())
+        layers.append(nn.Linear(sizes[-1], 1))
+        return nn.Sequential(*layers)
+
     def _compute_action(self, state: np.ndarray):
         state_tensor = torch.from_numpy(state).type(torch.float32)
         mean, precision = self._policy_network(state_tensor)
@@ -116,29 +130,48 @@ class ReinforceAgent(Agent):
         action = distribution.sample()
         return action.numpy()
 
-    def _update_policy(self):
+    def _update_networks(self):
         returns = self._compute_returns(self._rewards)
         returns_tensor = torch.tensor(returns, dtype=torch.float32)
         states_tesnor = torch.from_numpy(np.stack(self._states)).type(torch.float32)
         actions_tensor = torch.from_numpy(np.stack(self._actions)).type(torch.float32)
 
-        self._policy_network.train()
-        self._optimizer.zero_grad()
+        self._policy_network_update(returns_tensor, states_tesnor, actions_tensor)
+        self._baseline_network_update(returns_tensor, states_tesnor)
 
-        returns_tensor = returns_tensor - returns_tensor.mean()
-        action_means, action_precisions = self._policy_network(states_tesnor)
+    def _baseline_network_update(self, returns: Tensor, states: Tensor):
+        self._baseline_network.train()
+        self._baseline_optimizer.zero_grad()
+
+        with torch.no_grad():
+            targets = returns - self._baseline_network(states)
+
+        loss = -(targets * self._baseline_network(states)).mean()
+        loss.backward()
+
+        self._baseline_optimizer.step()
+        self._baseline_network.eval()
+    
+    def _policy_network_update(self, returns: Tensor, states: Tensor, actions: Tensor):
+        self._policy_network.train()
+        self._policy_optimizer.zero_grad()
+
+        with torch.no_grad():
+            baseline = self._baseline_network(states)
+        
+        targets = returns - baseline
+        action_means, action_precisions = self._policy_network(states)
         action_precisions = torch.clamp(action_precisions, min=-10.0, max=10.0)
         action_distribution = MultivariateNormal(
             action_means, 
             covariance_matrix=torch.diag_embed(torch.exp(action_precisions)),
         )
-        action_log_probs = action_distribution.log_prob(actions_tensor)
-        loss = -(returns_tensor * action_log_probs).mean()
+        action_log_probs = action_distribution.log_prob(actions)
+        loss = -(targets * action_log_probs).mean()
         loss.backward()
 
-        self._optimizer.step()
+        self._policy_optimizer.step()
         self._policy_network.eval()
-        self._reset_trajectory()
 
     def _update_trajectory(self, state=None, action=None, reward=None):
         if state is not None:
