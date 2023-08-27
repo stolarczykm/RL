@@ -51,21 +51,10 @@ def main():
         lambda seed: GradientPolicy(space_size, 0.1, seed=seed),
     ]
     bandit = lambda space_size, seed: KArmedBandit(space_size, seed=seed)
-    rewards = run_simulations(space_size, policies, bandit, 100, 1000)
+    rewards = run_simulations(space_size, policies, bandit, 100, 500)
     plot_results(rewards, policies)
 
-
-def main2():
-    space_size = 10
-    policies: List[Callable[[int], Policy]] = [
-        lambda seed: EpsilonGreedyMethod(space_size, 0.1, seed=seed),
-        lambda seed: NonstationaryEpsilonGreedyMethod(space_size, 0.1, 0.1, seed=seed)
-    ]
-    bandit = lambda space_size, seed: NonStationaryKArmedBandit(space_size, seed)
-    rewards = run_simulations(space_size, policies, bandit, 100, 10000)
-    plot_results(rewards, policies)
 
 
 if __name__ == "__main__":
     main()
-    main2()

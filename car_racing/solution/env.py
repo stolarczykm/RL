@@ -16,8 +16,8 @@ class DiscreteCarRacing(CarRacing):
         [1, 1, 0],
     ])
 
-    def __init__(self, verbose=1, lap_complete_percent=0.95):
-        super().__init__(verbose, lap_complete_percent)
+    def __init__(self):
+        super().__init__()
         self.action_space = Discrete(len(self.actions))
 
     def step(self, action: int):
