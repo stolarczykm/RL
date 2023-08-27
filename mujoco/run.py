@@ -5,7 +5,7 @@ import click
 import gym
 from tqdm import tqdm
 
-from agents import Agent, RandomAgent, ReinforceAgent
+from agents import Agent, RandomAgent, ReinforceAgent, ActorCriticAgent
 from vizualizer import EpisodeVizualizer, RewardVizualizer
 
 
@@ -42,6 +42,7 @@ def run_agent(
             episode_number += 1
             rewards.append(total_reward)
             vizualizer.update(total_reward)
+            print(total_reward)
             episode_vizualizer.vizualize_if_idle()
             total_reward, episode_steps = 0, 0
             agent.agent_start(obs)
@@ -51,13 +52,13 @@ def run_agent(
 
 @click.command()
 def run():
-    env_name = "Swimmer"
+    env_name = "HalfCheetah"
     env = gym.make(env_name)
 
-    agent = ReinforceAgent(env.action_space, env.observation_space)
+    agent = ActorCriticAgent(env.action_space, env.observation_space)
     vizualizer = RewardVizualizer()
     episode_vizualizer = EpisodeVizualizer(gym.make(env_name), agent)
-    vizualiztion_freq = 100
+    vizualiztion_freq = 10
     n_steps = 10000000
     run_agent(
         n_steps, 
